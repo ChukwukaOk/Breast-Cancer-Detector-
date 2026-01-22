@@ -1,16 +1,25 @@
 import pickle
 import numpy as np
+import os
 from flask import Flask, render_template, request, jsonify
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 
-with open("model.pkl", "rb") as f:
-    bundle = pickle.load(f)
-
-scaler = bundle["scaler"]
-model = bundle["model"]
+# Load model - handle both local and Vercel paths
+model_path = os.path.join(os.path.dirname(__file__), "model.pkl")
+try:
+    with open(model_path, "rb") as f:
+        bundle = pickle.load(f)
+    scaler = bundle["scaler"]
+    model = bundle["model"]
+except FileNotFoundError:
+    print(f"Warning: model.pkl not found at {model_path}")
+    scaler = None
+    model = None
 
 def predict_one(features):
+    if model is None or scaler is None:
+        raise Exception("Model not loaded. model.pkl is missing.")
     X = np.array(features, dtype=float).reshape(1, -1)
     Xs = scaler.transform(X)
     prob_malignant = float(model.predict_proba(Xs)[0, 1])
